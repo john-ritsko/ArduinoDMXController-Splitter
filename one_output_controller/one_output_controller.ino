@@ -1,72 +1,116 @@
-/*
-   Original sketch taken from https://github.com/PaulStoffregen/DmxSimple
-   Modified by Gadget Reboot to use with a demo for two
-   American DJ Micro Wash RGBW fixtures
-
-** This program allows you to set DMX channels over the serial port.
-**
-** After uploading to Arduino, switch to Serial Monitor and set the baud rate
-** to 9600. You can then set DMX channels using these commands:
-**
-** <number>c : Select DMX channel
-** <number>v : Set DMX channel to new value
-**
-** These can be combined. For example:
-** 100c355v : Set channel 100 to value 255.
-**
-** For more details, and compatible Processing sketch,
-** visit http://code.google.com/p/tinkerit/wiki/SerialToDmx
-**
-** Help and support: http://groups.google.com/group/dmxsimple       */
-
 #include <DmxSimple.h>
+#include <SPI.h>
+#include <Ethernet.h>
 
-void setup() {
-  Serial.begin(9600);
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip(192, 168, 1, 2);
 
-  /* DMX devices typically need to receive a complete set of channels
-  ** even if you only need to adjust the first channel. You can
-  ** easily change the number of channels sent here. If you don't
-  ** do this, DmxSimple will set the maximum channel number to the
-  ** highest channel you DmxSimple.write() to. */
-  //DmxSimple.maxChannel(10);
-  DmxSimple.usePin(3);   // digital output for DMX serial data
-  DmxSimple.maxChannel(128);
+EthernetServer server(80);
 
-  DmxSimple.write(1, 0);
-  DmxSimple.write(2, 0);
-  DmxSimple.write(3, 0);
-  DmxSimple.write(4, 0);
-  DmxSimple.write(5, 0);
+int c1 = 1;
+int c2 = 2;
+int c3 = 3;
+int c4 = 4;
+int c5 = 5;
 
-  Serial.println("DMX Manual Control");
-  Serial.println();
-  Serial.println("Syntax:");
-  Serial.println(" 123c : use DMX channel 123 (range: 1-512)");
-  Serial.println(" 45v  : set current channel to value 45 (range: 0-255)");
+int c1Val = 0;
+int c2Val = 0;
+int c3Val = 0;
+int c4Val = 0;
+int c5Val = 0;
 
+int parseVal(String &req, String key) {
+  int i = req.indexOf(key + "=");
+  if (i != -1) {
+    int start = i + key.length() + 1;
+    int end = req.indexOf('&', start);
+    if (end == -1) end = req.length();
+    String val = req.substring(start, end);
+    if (val.length() > 0) {
+      int v = val.toInt();
+      if (v > 255) return 255;
+      if (v < 0) return 0;
+      return v;
+    }
+  }
+  return -1;
 }
 
-int value = 0;
-int channel;
+void setup() {
+  DmxSimple.usePin(3);
+  DmxSimple.maxChannel(128);
+  Ethernet.begin(mac, ip);
+  server.begin();
+}
 
 void loop() {
-  int c;
+  EthernetClient client = server.available();
+if (client) {
+  boolean currentLineIsBlank = true;
+  String requestLine = "";
 
-  while (!Serial.available());
-  c = Serial.read();
-  if ((c >= '0') && (c <= '9')) {
-    value = 10 * value + c - '0';
-  } else {
-    if (c == 'c') channel = value;
-    else if (c == 'v') {
-      DmxSimple.write(channel, value);
-      Serial.print("Ch:");
-      Serial.print(channel);
-      Serial.print(" Value:");
-      Serial.print(value);
-      Serial.println();
+  while (client.connected()) {
+    if (client.available()) {
+      requestLine = client.readStringUntil('\r'); // Read full GET line
+      int v;
+
+
+      v = parseVal(requestLine, "c1Val");
+        if (v != -1) {
+          c1Val = v;
+          DmxSimple.write(c1, c1Val);
+        }
+
+      v = parseVal(requestLine, "c2Val");
+        if (v != -1) {
+          c2Val = v;
+          DmxSimple.write(c2, c2Val);
+        }
+
+      v = parseVal(requestLine, "c3Val");
+        if (v != -1) {
+          c3Val = v;
+          DmxSimple.write(c3, c3Val);
+        }
+
+      v = parseVal(requestLine, "c4Val");
+        if (v != -1) {
+          c4Val = v;
+          DmxSimple.write(c4, c4Val);
+        }
+      
+      v = parseVal(requestLine, "c5Val");
+        if (v != -1) {
+          c5Val = v;
+          DmxSimple.write(c5, c5Val);
+        }
+
+      // Respond with form
+      String response = "<html><body>";
+      response += "<h1>Edit DMX Channels</h1>";
+      response += "<form action='/' method='GET'>";
+      response += "Channel 1: <input type='text' name='c1Val' value='" + String(c1Val) + "'><br>";
+      response += "Channel 2: <input type='text' name='c2Val' value='" + String(c2Val) + "'><br>";
+      response += "Channel 3: <input type='text' name='c3Val' value='" + String(c3Val) + "'><br>";
+      response += "Channel 4: <input type='text' name='c4Val' value='" + String(c4Val) + "'><br>";
+      response += "Channel 5: <input type='text' name='c5Val' value='" + String(c5Val) + "'><br><br>";
+      response += "<input type='submit' value='Update'>";
+      response += "</form>";
+      response += "</body></html>";
+
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: text/html");
+      client.print("Content-Length: ");
+      client.println(response.length());
+      client.println("Connection: close");
+      client.println();
+      client.println(response);
+
+      break; // Done with response
     }
-    value = 0;
   }
+  delay(1);
+  client.stop();
+}
+
 }
