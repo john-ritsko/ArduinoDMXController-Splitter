@@ -165,7 +165,7 @@ void loop() {
 
   // Only rerun setup if state changes
   if (currentState != inControllerMode && !setupDone) {
-    for (int i = 0; i < 512; i++){
+    for (int i = 1; i <= 512; i++){
       DmxSimple.write(i, 0);
     }
     DmxSimple.maxChannel(128);
