@@ -165,11 +165,11 @@ void loop() {
 
   // Only rerun setup if state changes
   if (currentState != inControllerMode && !setupDone) {
-    DmxSimple.write(1,0);
-    DmxSimple.write(2,0);
-    DmxSimple.write(3,0);
-    DmxSimple.write(4,0);
-    DmxSimple.write(5,0);
+    for (int i = 0; i < 512; i++){
+      DmxSimple.write(i, 0);
+    }
+    DmxSimple.maxChannel(128);
+
     if (currentState) {
       setupController();
     } else {
@@ -181,6 +181,7 @@ void loop() {
   if (currentState) {
     controllerLoop();
   } else {
+    DmxSimple.maxChannel(512);
     splitterLoop();
   }
 
