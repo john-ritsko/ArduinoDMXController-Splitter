@@ -47,25 +47,14 @@ void setup() {
 }
 
 void splitterLoop() {
-  if (Serial.available()) {
-    int c = Serial.read();
-    if ((c >= '0') && (c <= '9')) {
-      value = 10 * value + c - '0';
-    } else {
-      if (c == 'c') channel = value;
-      else if (c == 'v') {
-        DmxSimple.write(channel, value);
-        Serial.print("Ch:");
-        Serial.print(channel);
-        Serial.print(" Value:");
-        Serial.println(value);
-      }
-      value = 0;
-    }
-  }
+  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(4, LOW);
 }
 
 void controllerLoop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  digitalWrite(4, HIGH);
+    
   EthernetClient client = server.available();
   if (!client) return;
 
@@ -141,28 +130,9 @@ void controllerLoop() {
 void loop() {
   bool currentState = digitalRead(2);
 
-  // Only rerun setup if state changes
-  if (currentState != inControllerMode && !setupDone) {
-    for (int i = 1; i <= 512; i++){
-      DmxSimple.write(i, 0);
-    }
-    DmxSimple.maxChannel(128);
-
-    if (currentState) {
-      setupController();
-    } else {
-      setupSplitter();
-    }
-  }
-
-  // Once mode is set, handle it
   if (currentState) {
     controllerLoop();
   } else {
-    DmxSimple.maxChannel(512);
     splitterLoop();
   }
-
-  // Reset setup flag to detect future changes
-  setupDone = false;
 }
