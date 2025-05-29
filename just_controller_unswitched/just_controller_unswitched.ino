@@ -14,8 +14,6 @@ uint8_t c1Val = 0, c2Val = 0, c3Val = 0, c4Val = 0, c5Val = 0;
 
 char requestBuffer[200];
 
-bool inControllerMode = false;
-
 int parseParam(const char *request, const char *key) {
   char *pos = strstr(request, key);
   if (pos) {
@@ -73,69 +71,121 @@ void loop() {
   }
   *getEnd = '\0';
 
-  if (strstr(getStart, "favicon.ico")) {
+  if (strstr(getStart, "/update?")) {
+    char *query = strchr(getStart, '?');
+    if (query) {
+      query++;
+      int ch = parseParam(query, "ch");
+      int val = parseParam(query, "val");
+      if (ch >= 1 && ch <= 5 && val != -1) {
+        switch (ch) {
+          case 1: c1Val = val; DmxSimple.write(c1, c1Val); break;
+          case 2: c2Val = val; DmxSimple.write(c2, c2Val); break;
+          case 3: c3Val = val; DmxSimple.write(c3, c3Val); break;
+          case 4: c4Val = val; DmxSimple.write(c4, c4Val); break;
+          case 5: c5Val = val; DmxSimple.write(c5, c5Val); break;
+        }
+      }
+    }
+    client.println("HTTP/1.1 200 OK");
+    client.println("Connection: close");
+    client.println();
     client.stop();
     return;
   }
 
-  char *query = strchr(getStart, '?');
-  if (query) {
-    query++;
-    int v;
-    v = parseParam(query, "c1Val");
-    if (v != -1) { c1Val = (uint8_t)v; DmxSimple.write(c1, c1Val); }
-    v = parseParam(query, "c2Val");
-    if (v != -1) { c2Val = (uint8_t)v; DmxSimple.write(c2, c2Val); }
-    v = parseParam(query, "c3Val");
-    if (v != -1) { c3Val = (uint8_t)v; DmxSimple.write(c3, c3Val); }
-    v = parseParam(query, "c4Val");
-    if (v != -1) { c4Val = (uint8_t)v; DmxSimple.write(c4, c4Val); }
-    v = parseParam(query, "c5Val");
-    if (v != -1) { c5Val = (uint8_t)v; DmxSimple.write(c5, c5Val); }
-  }
-
+  // Serve UI
   client.println(F("HTTP/1.1 200 OK"));
   client.println(F("Content-Type: text/html"));
   client.println(F("Connection: close"));
   client.println();
   client.println(F("<!DOCTYPE html><html><head><style>"));
+  client.println(F("body { background-color: black; color: white; font-family: sans-serif; text-align: center; }"));
   client.println(F(".slider-container {"));
-  client.println(F("  display: flex;"));
-  client.println(F("  gap: 20px;"));  // Space between sliders
-  client.println(F("  align-items: flex-end;"));  // Align sliders to bottom
-  client.println(F("  height: 250px;"));  // Max slider height
-  client.println(F("  margin-bottom: 20px;"));
+  client.println(F("  display: flex;"));                  // Horizontal layout
+  client.println(F("  justify-content: center;"));
+  client.println(F("  gap: 40px;"));                      // Space between sliders
+  client.println(F("  margin: 20px;"));
   client.println(F("}"));
+
   client.println(F(".slider-wrapper {"));
   client.println(F("  display: flex;"));
   client.println(F("  flex-direction: column;"));
   client.println(F("  align-items: center;"));
+  client.println(F("  color: white;"));
   client.println(F("}"));
+
   client.println(F(".slider {"));
   client.println(F("  -webkit-appearance: none;"));
-  client.println(F("  width: 200px;"));  // Will be height due to rotation
-  client.println(F("  height: 8px;"));
-  client.println(F("  transform: rotate(-90deg);"));
-  client.println(F("  margin: 10px 0;"));
+  client.println(F("  appearance: none;"));
+  client.println(F("  width: 200px;"));                   // Becomes height
+  client.println(F("  height: 8px;"));                    // Becomes width
+  client.println(F("  background: #888;"));
+  client.println(F("  border-radius: 4px;"));
+  client.println(F("  outline: none;"));
+  client.println(F("  transform: rotate(270deg);"));     // Rotate slider only
+  client.println(F("  margin: 20px 0;"));
   client.println(F("}"));
-  client.println(F("</style></head><body>"));
 
-  client.println(F("<h1>Edit DMX Channels</h1>"));
-  client.println(F("<form action='/' method='GET'>"));
-  client.println(F("<div class='slider-container'>"));
+  client.println(F(".slider::-webkit-slider-thumb {"));
+  client.println(F("  -webkit-appearance: none;"));
+  client.println(F("  appearance: none;"));
+  client.println(F("  width: 16px;"));
+  client.println(F("  height: 16px;"));
+  client.println(F("  background: white;"));
+  client.println(F("  border-radius: 50%;"));
+  client.println(F("  cursor: pointer;"));
+  client.println(F("}"));
 
-  client.print(F("<div class='slider-wrapper'>Channel 1<br><input type='range' class='slider' name='c1Val' min='0' max='255' value='")); client.print(c1Val); client.println(F("'></div>"));
-  client.print(F("<div class='slider-wrapper'>Channel 2<br><input type='range' class='slider' name='c2Val' min='0' max='255' value='")); client.print(c2Val); client.println(F("'></div>"));
-  client.print(F("<div class='slider-wrapper'>Channel 3<br><input type='range' class='slider' name='c3Val' min='0' max='255' value='")); client.print(c3Val); client.println(F("'></div>"));
-  client.print(F("<div class='slider-wrapper'>Channel 4<br><input type='range' class='slider' name='c4Val' min='0' max='255' value='")); client.print(c4Val); client.println(F("'></div>"));
-  client.print(F("<div class='slider-wrapper'>Channel 5<br><input type='range' class='slider' name='c5Val' min='0' max='255' value='")); client.print(c5Val); client.println(F("'></div>"));
+  client.println(F("</style></head><body>"));  // Close head and open body
+  client.println(F("<div class='slider-container'>")); // Open container
 
-  client.println(F("</div>"));  // end slider-container
 
-  client.println(F("<input type='submit' value='Update'>"));
-  client.println(F("</form></body></html>"));
+  for (int i = 1; i <= 5; i++) {
+    client.print(F("<div class='slider-wrapper'>"));
+    client.print(F("<div>Channel "));
+    client.print(i);
+    client.println(F("</div>"));
+    client.print(F("<input type='range' class='slider' min='0' max='255' value='"));
+    switch (i) {
+      case 1: client.print(c1Val); break;
+      case 2: client.print(c2Val); break;
+      case 3: client.print(c3Val); break;
+      case 4: client.print(c4Val); break;
+      case 5: client.print(c5Val); break;
+    }
+    client.print(F("' oninput='sendUpdate("));
+    client.print(i);
+    client.println(F(", this.value)'>"));
+    client.print(F("<div id='val"));
+    client.print(i);
+    client.print(F("'>"));
+    switch (i) {
+      case 1: client.print(c1Val); break;
+      case 2: client.print(c2Val); break;
+      case 3: client.print(c3Val); break;
+      case 4: client.print(c4Val); break;
+      case 5: client.print(c5Val); break;
+    }
+    client.println(F("</div></div>"));
+
+  }
+  client.println(F("</div>"));  // Close slider-container
+
+  client.println(F("</div>"));
+
+
+  client.println(F("<script>"));
+  client.println(F("function sendUpdate(channel, value) {"));
+  client.println(F("  var xhr = new XMLHttpRequest();"));
+  client.println(F("  xhr.open('GET', '/update?ch=' + channel + '&val=' + value, true);"));
+  client.println(F("  xhr.send();"));
+  client.println(F("  document.getElementById('val' + channel).textContent = value;"));
+  client.println(F("}"));
+  client.println(F("</script>"));
+
+
+  client.println(F("</body></html>"));
   delay(1);
   client.stop();
-
-
 }
