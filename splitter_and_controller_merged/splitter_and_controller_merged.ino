@@ -32,14 +32,40 @@ int parseParam(const char *request, const char *key) {
   return -1;
 }
 
-void setup() {
+void setupController() {
   DmxSimple.usePin(3);
   DmxSimple.maxChannel(128);
   Ethernet.begin(mac, ip);
   server.begin();
 }
 
-void loop() {
+void setup() {
+  pinMode(2, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(4, OUTPUT);
+  setupController();
+}
+
+void splitterLoop() {
+  if (Serial.available()) {
+    int c = Serial.read();
+    if ((c >= '0') && (c <= '9')) {
+      value = 10 * value + c - '0';
+    } else {
+      if (c == 'c') channel = value;
+      else if (c == 'v') {
+        DmxSimple.write(channel, value);
+        Serial.print("Ch:");
+        Serial.print(channel);
+        Serial.print(" Value:");
+        Serial.println(value);
+      }
+      value = 0;
+    }
+  }
+}
+
+void controllerLoop() {
   EthernetClient client = server.available();
   if (!client) return;
 
@@ -110,4 +136,33 @@ void loop() {
   client.println(F("</form></body></html>"));
   delay(1);
   client.stop();
+}
+
+void loop() {
+  bool currentState = digitalRead(2);
+
+  // Only rerun setup if state changes
+  if (currentState != inControllerMode && !setupDone) {
+    for (int i = 1; i <= 512; i++){
+      DmxSimple.write(i, 0);
+    }
+    DmxSimple.maxChannel(128);
+
+    if (currentState) {
+      setupController();
+    } else {
+      setupSplitter();
+    }
+  }
+
+  // Once mode is set, handle it
+  if (currentState) {
+    controllerLoop();
+  } else {
+    DmxSimple.maxChannel(512);
+    splitterLoop();
+  }
+
+  // Reset setup flag to detect future changes
+  setupDone = false;
 }
