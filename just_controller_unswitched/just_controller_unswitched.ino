@@ -98,16 +98,44 @@ void loop() {
   client.println(F("Content-Type: text/html"));
   client.println(F("Connection: close"));
   client.println();
-  client.println(F("<!DOCTYPE html><html><body>"));
+  client.println(F("<!DOCTYPE html><html><head><style>"));
+  client.println(F(".slider-container {"));
+  client.println(F("  display: flex;"));
+  client.println(F("  gap: 20px;"));  // Space between sliders
+  client.println(F("  align-items: flex-end;"));  // Align sliders to bottom
+  client.println(F("  height: 250px;"));  // Max slider height
+  client.println(F("  margin-bottom: 20px;"));
+  client.println(F("}"));
+  client.println(F(".slider-wrapper {"));
+  client.println(F("  display: flex;"));
+  client.println(F("  flex-direction: column;"));
+  client.println(F("  align-items: center;"));
+  client.println(F("}"));
+  client.println(F(".slider {"));
+  client.println(F("  -webkit-appearance: none;"));
+  client.println(F("  width: 200px;"));  // Will be height due to rotation
+  client.println(F("  height: 8px;"));
+  client.println(F("  transform: rotate(-90deg);"));
+  client.println(F("  margin: 10px 0;"));
+  client.println(F("}"));
+  client.println(F("</style></head><body>"));
+
   client.println(F("<h1>Edit DMX Channels</h1>"));
   client.println(F("<form action='/' method='GET'>"));
-  client.print(F("Channel 1: <input type='text' name='c1Val' value='")); client.print(c1Val); client.println(F("'><br>"));
-  client.print(F("Channel 2: <input type='text' name='c2Val' value='")); client.print(c2Val); client.println(F("'><br>"));
-  client.print(F("Channel 3: <input type='text' name='c3Val' value='")); client.print(c3Val); client.println(F("'><br>"));
-  client.print(F("Channel 4: <input type='text' name='c4Val' value='")); client.print(c4Val); client.println(F("'><br>"));
-  client.print(F("Channel 5: <input type='text' name='c5Val' value='")); client.print(c5Val); client.println(F("'><br><br>"));
+  client.println(F("<div class='slider-container'>"));
+
+  client.print(F("<div class='slider-wrapper'>Channel 1<br><input type='range' class='slider' name='c1Val' min='0' max='255' value='")); client.print(c1Val); client.println(F("'></div>"));
+  client.print(F("<div class='slider-wrapper'>Channel 2<br><input type='range' class='slider' name='c2Val' min='0' max='255' value='")); client.print(c2Val); client.println(F("'></div>"));
+  client.print(F("<div class='slider-wrapper'>Channel 3<br><input type='range' class='slider' name='c3Val' min='0' max='255' value='")); client.print(c3Val); client.println(F("'></div>"));
+  client.print(F("<div class='slider-wrapper'>Channel 4<br><input type='range' class='slider' name='c4Val' min='0' max='255' value='")); client.print(c4Val); client.println(F("'></div>"));
+  client.print(F("<div class='slider-wrapper'>Channel 5<br><input type='range' class='slider' name='c5Val' min='0' max='255' value='")); client.print(c5Val); client.println(F("'></div>"));
+
+  client.println(F("</div>"));  // end slider-container
+
   client.println(F("<input type='submit' value='Update'>"));
   client.println(F("</form></body></html>"));
   delay(1);
   client.stop();
+
+
 }
