@@ -8,9 +8,11 @@ IPAddress ip(192, 168, 1, 2);
 
 EthernetServer server(80);
 
-// DMX Channels
-const int c1 = 1, c2 = 2, c3 = 3, c4 = 4, c5 = 5;
-uint8_t c1Val = 0, c2Val = 0, c3Val = 0, c4Val = 0, c5Val = 0;
+// DMX channel numbers and values
+const int numChannels = 20;
+const int dmxChannels[numChannels] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                                      11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+uint8_t channelValues[numChannels] = {0};
 
 char requestBuffer[200];
 
@@ -71,20 +73,25 @@ void loop() {
   }
   *getEnd = '\0';
 
+  // Handle favicon.ico to avoid browser requests
+  if (strstr(getStart, "/favicon.ico")) {
+    client.println("HTTP/1.1 204 No Content");
+    client.println("Connection: close");
+    client.println();
+    client.stop();
+    return;
+  }
+
+  // Handle /update?ch=X&val=Y
   if (strstr(getStart, "/update?")) {
     char *query = strchr(getStart, '?');
     if (query) {
       query++;
       int ch = parseParam(query, "ch");
       int val = parseParam(query, "val");
-      if (ch >= 1 && ch <= 5 && val != -1) {
-        switch (ch) {
-          case 1: c1Val = val; DmxSimple.write(c1, c1Val); break;
-          case 2: c2Val = val; DmxSimple.write(c2, c2Val); break;
-          case 3: c3Val = val; DmxSimple.write(c3, c3Val); break;
-          case 4: c4Val = val; DmxSimple.write(c4, c4Val); break;
-          case 5: c5Val = val; DmxSimple.write(c5, c5Val); break;
-        }
+      if (ch >= 1 && ch <= numChannels && val != -1) {
+        channelValues[ch - 1] = val;
+        DmxSimple.write(dmxChannels[ch - 1], val);
       }
     }
     client.println("HTTP/1.1 200 OK");
@@ -100,79 +107,30 @@ void loop() {
   client.println(F("Connection: close"));
   client.println();
   client.println(F("<!DOCTYPE html><html><head><style>"));
-  client.println(F("body { background-color: black; color: white; font-family: sans-serif; text-align: center; }"));
-  client.println(F(".slider-container {"));
-  client.println(F("  display: flex;"));                  // Horizontal layout
-  client.println(F("  justify-content: center;"));
-  client.println(F("  gap: 40px;"));                      // Space between sliders
-  client.println(F("  margin: 20px;"));
-  client.println(F("}"));
+  client.println(F("body { background-color: black; color: white; font-family: sans-serif; text-align: center; padding-top: 80px; margin-top: 40px; }"));
+  client.println(F(".slider-container { display: flex; justify-content: flex-start; gap: 0px; margin: 20px; }"));
+  client.println(F(".slider-wrapper { display: flex; flex-direction: column; align-items: center; color: white; margin-left: -60px; margin-right: -60px; margin-top: 60px; margin-bottom: 60px; }"));
+  client.println(F(".slider { -webkit-appearance: none; appearance: none; width: 200px; height: 8px; background: #888; border-radius: 4px; outline: none; transform: rotate(270deg); margin: 20px 0; }"));
+  client.println(F(".slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: white; border-radius: 50%; cursor: pointer; }"));
+  client.println(F(".channel-label { margin-top: 85px; font-size: 14px; }"));
+  client.println(F("</style></head><body>"));
 
-  client.println(F(".slider-wrapper {"));
-  client.println(F("  display: flex;"));
-  client.println(F("  flex-direction: column;"));
-  client.println(F("  align-items: center;"));
-  client.println(F("  color: white;"));
-  client.println(F("}"));
-
-  client.println(F(".slider {"));
-  client.println(F("  -webkit-appearance: none;"));
-  client.println(F("  appearance: none;"));
-  client.println(F("  width: 200px;"));                   // Becomes height
-  client.println(F("  height: 8px;"));                    // Becomes width
-  client.println(F("  background: #888;"));
-  client.println(F("  border-radius: 4px;"));
-  client.println(F("  outline: none;"));
-  client.println(F("  transform: rotate(270deg);"));     // Rotate slider only
-  client.println(F("  margin: 20px 0;"));
-  client.println(F("}"));
-
-  client.println(F(".slider::-webkit-slider-thumb {"));
-  client.println(F("  -webkit-appearance: none;"));
-  client.println(F("  appearance: none;"));
-  client.println(F("  width: 16px;"));
-  client.println(F("  height: 16px;"));
-  client.println(F("  background: white;"));
-  client.println(F("  border-radius: 50%;"));
-  client.println(F("  cursor: pointer;"));
-  client.println(F("}"));
-
-  client.println(F("</style></head><body>"));  // Close head and open body
-  client.println(F("<div class='slider-container'>")); // Open container
-
-
-  for (int i = 1; i <= 5; i++) {
-    client.print(F("<div class='slider-wrapper'>"));
-    client.print(F("<div>Channel "));
-    client.print(i);
-    client.println(F("</div>"));
-    client.print(F("<input type='range' class='slider' min='0' max='255' value='"));
-    switch (i) {
-      case 1: client.print(c1Val); break;
-      case 2: client.print(c2Val); break;
-      case 3: client.print(c3Val); break;
-      case 4: client.print(c4Val); break;
-      case 5: client.print(c5Val); break;
+  for (int row = 0; row < 2; row++) {
+    client.println(F("<div class='slider-container'>"));
+    for (int i = 0; i < 10; i++) {
+      int chIndex = row * 10 + i;
+      client.print(F("<div class='slider-wrapper'>"));
+      client.print(F("<input type='range' class='slider' min='0' max='255' value='"));
+      client.print(channelValues[chIndex]);
+      client.print(F("' oninput='sendUpdate("));
+      client.print(chIndex + 1);
+      client.println(F(", this.value)'>"));
+      client.print(F("<div class='channel-label'>Channel "));
+      client.print(chIndex + 1);
+      client.println(F("</div></div>"));
     }
-    client.print(F("' oninput='sendUpdate("));
-    client.print(i);
-    client.println(F(", this.value)'>"));
-    client.print(F("<div id='val"));
-    client.print(i);
-    client.print(F("'>"));
-    switch (i) {
-      case 1: client.print(c1Val); break;
-      case 2: client.print(c2Val); break;
-      case 3: client.print(c3Val); break;
-      case 4: client.print(c4Val); break;
-      case 5: client.print(c5Val); break;
-    }
-    client.println(F("</div></div>"));
-
+    client.println(F("</div>")); // Close .slider-container
   }
-  client.println(F("</div>"));  // Close slider-container
-
-  client.println(F("</div>"));
 
 
   client.println(F("<script>"));
@@ -180,12 +138,10 @@ void loop() {
   client.println(F("  var xhr = new XMLHttpRequest();"));
   client.println(F("  xhr.open('GET', '/update?ch=' + channel + '&val=' + value, true);"));
   client.println(F("  xhr.send();"));
-  client.println(F("  document.getElementById('val' + channel).textContent = value;"));
   client.println(F("}"));
   client.println(F("</script>"));
-
-
   client.println(F("</body></html>"));
+
   delay(1);
   client.stop();
 }
