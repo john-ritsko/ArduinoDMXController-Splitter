@@ -38,6 +38,96 @@ int parseParam(const char *request, const char *key) {
   return -1;
 }
 
+bool getParam(const char *request, const char *key, char *valBuf, int valBufSize) {
+  const char *pos = strstr(request, key);
+  if (!pos) return false;
+  pos += strlen(key);
+  if (*pos != '=') return false;
+  pos++; // skip '='
+
+  int i = 0;
+  while (*pos && *pos != '&' && *pos != ' ' && i < valBufSize - 1) {
+    valBuf[i++] = *pos++;
+  }
+  valBuf[i] = '\0';
+  return i > 0;
+}
+
+void handleButton(const char *name, int cb1, int cb2, int cb3, int cb4) {
+  Serial.println("ts is calling");
+  int presetVals[4];
+  int groupsSelected[] = {cb1, cb2, cb3, cb4};
+  Serial.print(groupsSelected[0]);
+  Serial.print(groupsSelected[1]);
+  Serial.print(groupsSelected[2]);
+  Serial.print(groupsSelected[3]);
+  if (strcmp(name, "btn1") == 0){ //red
+    presetVals[0] = 255;
+    presetVals[1] = 0;
+    presetVals[2] = 0;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn2") == 0) { //orange
+    presetVals[0] = 255;
+    presetVals[1] = 140;
+    presetVals[2] = 0;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn3") == 0) { //yellow
+    presetVals[0] = 255;
+    presetVals[1] = 255;
+    presetVals[2] = 0;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn4") == 0) { //green
+    presetVals[0] = 0;
+    presetVals[1] = 255;
+    presetVals[2] = 0;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn5") == 0) { //light bluish cyan
+    presetVals[0] = 0;
+    presetVals[1] = 255;
+    presetVals[2] = 255;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn6") == 0) { //dark blue
+    presetVals[0] = 0;
+    presetVals[1] = 0;
+    presetVals[2] = 255;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn7") == 0) { //pink
+    presetVals[0] = 255;
+    presetVals[1] = 0;
+    presetVals[2] = 128;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn8") == 0) { //purple
+    presetVals[0] = 128;
+    presetVals[1] = 0;
+    presetVals[2] = 255;
+    presetVals[3] = 0;
+  } else if (strcmp(name, "btn9") == 0) { //white
+    presetVals[0] = 255;
+    presetVals[1] = 255;
+    presetVals[2] = 255;
+    presetVals[3] = 255;
+  }
+
+  // send preset to selected groups
+  for (int i = 0; i < 4; i++){
+    if (groupsSelected[i] == 1) {
+      int baseChannel = i * 5 + 2;
+      channelValues[baseChannel-1] = presetVals[0];
+      channelValues[baseChannel] = presetVals[1];
+      channelValues[baseChannel+1] = presetVals[2];
+      channelValues[baseChannel+2] = presetVals[3];
+
+      DmxSimple.write(baseChannel, presetVals[0]);
+      DmxSimple.write(baseChannel+1, presetVals[1]);
+      DmxSimple.write(baseChannel+2, presetVals[2]);
+      DmxSimple.write(baseChannel+3, presetVals[3]);
+      Serial.println("ts should be working");
+    } else {
+      Serial.println("ts thinks its false");
+    }
+  }
+}
+
 bool inControllerMode = false;
 
 void setupController() {
@@ -45,6 +135,7 @@ void setupController() {
   DmxSimple.maxChannel(128);
   Ethernet.begin(mac, ip);
   server.begin();
+  Serial.begin(9600);
 }
 
 void setup() {
@@ -105,15 +196,69 @@ void controllerLoop() {
     return;
   }
 
-  // Handle /update?ch=X&val=Y
-  if (strstr(getStart, "/update?")) {
+  if (strstr(getStart, "/sliderValues")) {
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/plain");
+  client.println("Connection: close");
+  client.println();
+
+  for (int i = 0; i < universeSize; i++) {
+    client.print(channelValues[i]);
+    if (i < universeSize - 1) client.print(",");  // comma-separated
+  }
+
+  client.println(); // end of response
+  client.stop();
+  return;
+}
+
+  if (strstr(getStart, "/button?")) {
+    Serial.println("i caught that shit");
     char *query = strchr(getStart, '?');
     if (query) {
       query++;
+
+      if (strstr(query, "name=")) {
+      char name[32];
+      char cb1Str[4], cb2Str[4], cb3Str[4], cb4Str[4];
+
+      if (!getParam(requestBuffer, "name", name, sizeof(name))) {
+        // optional: send 400 error if missing
+      }
+      if (!getParam(requestBuffer, "cb1", cb1Str, sizeof(cb1Str))) cb1Str[0] = '0';
+      if (!getParam(requestBuffer, "cb2", cb2Str, sizeof(cb2Str))) cb2Str[0] = '0';
+      if (!getParam(requestBuffer, "cb3", cb3Str, sizeof(cb3Str))) cb3Str[0] = '0';
+      if (!getParam(requestBuffer, "cb4", cb4Str, sizeof(cb4Str))) cb4Str[0] = '0';
+
+      int cb1 = atoi(cb1Str);
+      int cb2 = atoi(cb2Str);
+      int cb3 = atoi(cb3Str);
+      int cb4 = atoi(cb4Str);
+
+      handleButton(name, cb1, cb2, cb3, cb4);
+    }
+
+    }
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/plain");
+    client.println("Connection: close");
+    client.println();
+    client.println("OK");
+    client.stop();
+    return;
+  }
+
+  if (strstr(getStart, "/update?")) {
+  char *query = strchr(getStart, '?');
+  if (query) {
+    query++;
+
+    // Detect slider update: look for `ch=`
+    if (strstr(query, "ch=")) {
       int ch = parseParam(query, "ch");
       int val = parseParam(query, "val");
       if (ch >= 1 && ch <= universeSize && val != -1) {
-        if (ch <= 20){
+        if (ch <= 20) {
           channelValues[ch - 1] = val;
           DmxSimple.write(dmxChannels[ch - 1], val);
         } else {
@@ -121,12 +266,18 @@ void controllerLoop() {
         }
       }
     }
-    client.println("HTTP/1.1 200 OK");
-    client.println("Connection: close");
-    client.println();
-    client.stop();
-    return;
   }
+
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/plain");
+  client.println("Connection: close");
+  client.println();
+  client.println("OK");
+  client.stop();
+  return;
+}
+
+
 
   // Serve UI
   client.println(F("HTTP/1.1 200 OK"));
@@ -315,15 +466,15 @@ void controllerLoop() {
 
   // Buttons grid
   client.println(F("<div class='button-grid'>"));
-  client.println(F("<button style='background-color:#FF0000' onclick='setPreset(1)'></button>"));
-  client.println(F("<button style='background-color:#FF8C00' onclick='setPreset(2)'></button>"));
-  client.println(F("<button style='background-color:#FFFF00' onclick='setPreset(3)'></button>"));
-  client.println(F("<button style='background-color:#00FF00' onclick='setPreset(4)'></button>"));
-  client.println(F("<button style='background-color:#00FFFF' onclick='setPreset(5)'></button>"));
-  client.println(F("<button style='background-color:#0000FF' onclick='setPreset(6)'></button>"));
-  client.println(F("<button style='background-color:#FF0080' onclick='setPreset(7)'></button>"));
-  client.println(F("<button style='background-color:#8000FF' onclick='setPreset(8)'></button>"));
-  client.println(F("<button style='background-color:#FFFFFF' onclick='setPreset(9)'></button>"));
+  client.println(F("<button style='background-color:#FF0000' onclick='sendButton(\"btn1\")'></button>"));
+  client.println(F("<button style='background-color:#FF8C00' onclick='sendButton(\"btn2\")'></button>"));
+  client.println(F("<button style='background-color:#FFFF00' onclick='sendButton(\"btn3\")'></button>"));
+  client.println(F("<button style='background-color:#00FF00' onclick='sendButton(\"btn4\")'></button>"));
+  client.println(F("<button style='background-color:#00FFFF' onclick='sendButton(\"btn5\")'></button>"));
+  client.println(F("<button style='background-color:#0000FF' onclick='sendButton(\"btn6\")'></button>"));
+  client.println(F("<button style='background-color:#FF0080' onclick='sendButton(\"btn7\")'></button>"));
+  client.println(F("<button style='background-color:#8000FF' onclick='sendButton(\"btn8\")'></button>"));
+  client.println(F("<button style='background-color:#FFFFFF' onclick='sendButton(\"btn9\")'></button>"));
   client.println(F("</div>")); // end button grid
 
   // JavaScript
@@ -335,46 +486,25 @@ void controllerLoop() {
   client.println(F("  xhr.send();"));
   client.println(F("}"));
 
-  client.println(F("function setPreset(presetNum) {"));
-  client.println(F("  const presets = {"));
-  client.println(F("    1: [255, 0, 0, 0],     // Red"));
-  client.println(F("    2: [255, 140, 0, 0],     // Orange"));
-  client.println(F("    3: [255, 255, 0, 0],     // Yellow"));
-  client.println(F("    4: [0, 255, 0, 0],   // Green"));
-  client.println(F("    5: [0, 255, 255, 0],   // Light Blueish Cyan"));
-  client.println(F("    6: [0, 0, 255, 0],    // Dark Blue"));
-  client.println(F("    7: [255, 0, 128, 0],    // Pink"));
-  client.println(F("    8: [128, 0, 255, 0],    // Purple"));
-  client.println(F("    9: [255, 255, 255, 255]    // White"));
-  client.println(F("  };"));
-
-  client.println(F("  const rgbw = presets[presetNum];"));
-  client.println(F("  if (!rgbw) return;"));
-
-  client.println(F("  // Determine selected groups"));
-  client.println(F("  const selectedGroups = [];"));
-  client.println(F("  for (let g = 1; g <= 4; g++) {"));
-  client.println(F("    let cb = document.getElementById('groupCheckbox' + g);"));
-  client.println(F("    if (cb && cb.checked) selectedGroups.push(g);"));
+  client.println(F("function getCheckbox(id) {"));
+  client.println(F("  return document.getElementById(id).checked ? 1 : 0;"));
   client.println(F("  }"));
 
-  client.println(F("  // For each selected group, set its 5 channels"));
-  client.println(F("  selectedGroups.forEach(groupNum => {"));
-  client.println(F("    let baseChannel = (groupNum - 1) * 5 + 2;"));
-  client.println(F("    for (let i = 0; i < 4; i++) {")); // RGBW on last 4 channels of the group
-  client.println(F("      let ch = baseChannel + i;"));
-  client.println(F("      sendUpdate(ch, rgbw[i]);"));
-  client.println(F("      const slider = document.querySelector(`input[type=range][oninput*='${ch}']`);"));
-  client.println(F("      if (slider) {"));
-  client.println(F("        slider.oninput = null;"));
-  client.println(F("        slider.value = rgbw[i];"));
-  client.println(F("        setTimeout(() => {"));
-  client.println(F("          slider.oninput = () => sendUpdate(ch, slider.value);"));
-  client.println(F("        }, 300);"));
-  client.println(F("      }"));
-  client.println(F("    }"));
+  client.println(F("function sendButton(buttonName) {"));
+  client.println(F("  const cb1 = getCheckbox('groupCheckbox1');"));
+  client.println(F("  const cb2 = getCheckbox('groupCheckbox2');"));
+  client.println(F("  const cb3 = getCheckbox('groupCheckbox3');"));
+  client.println(F("  const cb4 = getCheckbox('groupCheckbox4');"));
+  client.println(F("  "));
+  client.println(F("  const url = `/button?name=${buttonName}&cb1=${cb1}&cb2=${cb2}&cb3=${cb3}&cb4=${cb4}`;"));
+  client.println(F("  fetch(url).then(res => {"));
+  client.println(F("    console.log(`Sent: ${url}`);"));
+  client.println(F("    setTimeout(() => {"));
+  client.println(F("      updateSliders();"));
+  client.println(F("    }, 200);"));
   client.println(F("  });"));
   client.println(F("}"));
+
 
   client.println(F("function sendManualUpdate() {"));
   client.println(F("  const ch = parseInt(document.getElementById('channelInput').value);"));
@@ -388,6 +518,25 @@ void controllerLoop() {
   client.println(F("  sendUpdate(ch, val);"));
   client.println(F("  const slider = document.querySelector(`input[type=range][oninput*='${ch}']`);"));
   client.println(F("  if (slider) slider.value = val;"));
+  client.println(F("}"));
+
+  client.println(F("async function updateSliders() {"));
+  client.println(F("  try {"));
+  client.println(F("    const response = await fetch('/sliderValues');"));
+  client.println(F("    if (!response.ok) throw new Error('Network response was not OK');"));
+  client.println(F("    const text = await response.text();"));
+  client.println(F("    const values = text.trim().split(',');"));
+  client.println(F(""));
+  client.println(F("    for (let i = 0; i < 20 && i < values.length; i++) {"));
+  client.println(F("      const slider = document.getElementById(`slider${i+1}`);"));
+  client.println(F("      if (slider) {"));
+  client.println(F("        slider.value = valuse[i];"));
+  client.println(F("      }"));
+  client.println(F("      console.log('I think i updated');"));
+  client.println(F("    }"));
+  client.println(F("  } catch (error) {"));
+  client.println(F("    console.error('Failed to update sliders:', error);"));
+  client.println(F("  }"));
   client.println(F("}"));
 
 
