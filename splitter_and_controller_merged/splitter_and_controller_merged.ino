@@ -54,13 +54,8 @@ bool getParam(const char *request, const char *key, char *valBuf, int valBufSize
 }
 
 void handleButton(const char *name, int cb1, int cb2, int cb3, int cb4) {
-  Serial.println("ts is calling");
   int presetVals[4];
   int groupsSelected[] = {cb1, cb2, cb3, cb4};
-  Serial.print(groupsSelected[0]);
-  Serial.print(groupsSelected[1]);
-  Serial.print(groupsSelected[2]);
-  Serial.print(groupsSelected[3]);
   if (strcmp(name, "btn1") == 0){ //red
     presetVals[0] = 255;
     presetVals[1] = 0;
@@ -121,9 +116,28 @@ void handleButton(const char *name, int cb1, int cb2, int cb3, int cb4) {
       DmxSimple.write(baseChannel+1, presetVals[1]);
       DmxSimple.write(baseChannel+2, presetVals[2]);
       DmxSimple.write(baseChannel+3, presetVals[3]);
-      Serial.println("ts should be working");
-    } else {
-      Serial.println("ts thinks its false");
+    }
+  }
+}
+
+void handleButton(int r, int g, int b, int w, int cb1, int cb2, int cb3, int cb4) {
+  int presetVals[] = {r, g, b, w};
+  Serial.println(presetVals[0]);
+  int groupsSelected[] = {cb1, cb2, cb3, cb4};
+
+  // send preset to selected groups
+  for (int i = 0; i < 4; i++){
+    if (groupsSelected[i] == 1) {
+      int baseChannel = i * 5 + 2;
+      channelValues[baseChannel-1] = presetVals[0];
+      channelValues[baseChannel] = presetVals[1];
+      channelValues[baseChannel+1] = presetVals[2];
+      channelValues[baseChannel+2] = presetVals[3];
+
+      DmxSimple.write(baseChannel, presetVals[0]);
+      DmxSimple.write(baseChannel+1, presetVals[1]);
+      DmxSimple.write(baseChannel+2, presetVals[2]);
+      DmxSimple.write(baseChannel+3, presetVals[3]);
     }
   }
 }
@@ -202,18 +216,17 @@ void controllerLoop() {
   client.println("Connection: close");
   client.println();
 
-  for (int i = 0; i < universeSize; i++) {
+  for (int i = 0; i < 20; i++) {
     client.print(channelValues[i]);
-    if (i < universeSize - 1) client.print(",");  // comma-separated
+    if (i < 19) client.print(",");
   }
 
-  client.println(); // end of response
+  client.println();
   client.stop();
   return;
 }
 
   if (strstr(getStart, "/button?")) {
-    Serial.println("i caught that shit");
     char *query = strchr(getStart, '?');
     if (query) {
       query++;
@@ -239,6 +252,46 @@ void controllerLoop() {
     }
 
     }
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/plain");
+    client.println("Connection: close");
+    client.println();
+    client.println("OK");
+    client.stop();
+    return;
+  }
+
+  if (strstr(getStart, "/customColor?")) {
+  char *query = strchr(getStart, '?');
+  if (query) {
+    query++;
+
+    char rStr[4], gStr[4], bStr[4], wStr[4], cb1Str[4], cb2Str[4], cb3Str[4], cb4Str[4];
+
+    if (!getParam(query, "r", rStr, sizeof(rStr))) rStr[0] = '0';
+    if (!getParam(query, "g", gStr, sizeof(gStr))) gStr[0] = '0';
+    if (!getParam(query, "b", bStr, sizeof(bStr))) bStr[0] = '0';
+    if (!getParam(query, "w", wStr, sizeof(wStr))) wStr[0] = '0';
+
+    if (!getParam(requestBuffer, "cb1", cb1Str, sizeof(cb1Str))) cb1Str[0] = '0';
+    if (!getParam(requestBuffer, "cb2", cb2Str, sizeof(cb2Str))) cb2Str[0] = '0';
+    if (!getParam(requestBuffer, "cb3", cb3Str, sizeof(cb3Str))) cb3Str[0] = '0';
+    if (!getParam(requestBuffer, "cb4", cb4Str, sizeof(cb4Str))) cb4Str[0] = '0';
+
+    int cb1 = atoi(cb1Str);
+    int cb2 = atoi(cb2Str);
+    int cb3 = atoi(cb3Str);
+    int cb4 = atoi(cb4Str);
+
+    int r = atoi(rStr);
+    int g = atoi(gStr);
+    int b = atoi(bStr);
+    int w = atoi(wStr);
+
+    handleButton(r, g, b, w, cb1, cb2, cb3, cb4);
+  }
+
+    
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: text/plain");
     client.println("Connection: close");
@@ -378,7 +431,7 @@ void controllerLoop() {
 
   client.println(F("#manual-control {"));
   client.println(F("  position: fixed;"));
-  client.println(F("  bottom: 20px;"));
+  client.println(F("  bottom: 70px;"));
   client.println(F("  right: 20px;"));
   client.println(F("  background-color: rgba(30, 30, 30, 0.8);"));
   client.println(F("  padding: 10px 15px;"));
@@ -392,6 +445,32 @@ void controllerLoop() {
   client.println(F("  width: 60px;"));
   client.println(F("}"));
   client.println(F("#manual-control button {"));
+  client.println(F("  margin-left: 10px;"));
+  client.println(F("  cursor: pointer;"));
+  client.println(F("  font-weight: bold;"));
+  client.println(F("  padding: 4px 10px;"));
+  client.println(F("  border-radius: 5px;"));
+  client.println(F("  border: none;"));
+  client.println(F("  background-color: #3498db;"));
+  client.println(F("  color: white;"));
+  client.println(F("}"));
+
+  client.println(F("#custom-color {"));
+  client.println(F("  position: fixed;"));
+  client.println(F("  bottom: 20px;"));
+  client.println(F("  right: 20px;"));
+  client.println(F("  background-color: rgba(30, 30, 30, 0.8);"));
+  client.println(F("  padding: 10px 15px;"));
+  client.println(F("  border-radius: 8px;"));
+  client.println(F("  color: white;"));
+  client.println(F("  font-size: 14px;"));
+  client.println(F("  box-shadow: 0 0 10px rgba(0,0,0,0.7);"));
+  client.println(F("  z-index: 1000;"));
+  client.println(F("}"));
+  client.println(F("#custom-color input {"));
+  client.println(F("  width: 60px;"));
+  client.println(F("}"));
+  client.println(F("#custom-color button {"));
   client.println(F("  margin-left: 10px;"));
   client.println(F("  cursor: pointer;"));
   client.println(F("  font-weight: bold;"));
@@ -417,6 +496,18 @@ void controllerLoop() {
   client.println(F("  <button onclick='sendManualUpdate()'>Set</button>"));
   client.println(F("</div>"));
 
+  client.println(F("<div id='custom-color'>"));
+  client.println(F("  <label for='customRed' style='margin-left: 10px;'>Custom Color  -  Red: </label>"));
+  client.println(F("  <input type='number' id='customRed' min='0' max='255'>"));
+  client.println(F("  <label for='customGreen' style='margin-left: 10px;'>Green: </label>"));
+  client.println(F("  <input type='number' id='customGreen' min='0' max='255'>"));
+  client.println(F("  <label for='customBlue' style='margin-left: 10px;'>Blue: </label>"));
+  client.println(F("  <input type='number' id='customBlue' min='0' max='255'>"));
+  client.println(F("  <label for='customWhite' style='margin-left: 10px;'>White: </label>"));
+  client.println(F("  <input type='number' id='customWhite' min='0' max='255'>"));
+  client.println(F("  <button onclick='sendCustomColor()'>Set</button>"));
+  client.println(F("</div>"));
+
 
   // Group selection checkboxes
   client.println(F("<div class='group-selection'>"));
@@ -436,7 +527,9 @@ void controllerLoop() {
   client.println(F("<div class='slider-container'>"));
   for (int i = 0; i < 10; i++) {
     client.print(F("<div class='slider-wrapper'>"));
-    client.print(F("<input type='range' class='slider' min='0' max='255' value='"));
+    client.print(F("<input type='range' id='slider"));
+    client.print(i+1);
+    client.print(F("' class='slider' min='0' max='255' value='"));
     client.print(channelValues[i]);
     client.print(F("' oninput='sendUpdate("));
     client.print(i + 1);
@@ -451,7 +544,9 @@ void controllerLoop() {
   client.println(F("<div class='slider-container'>"));
   for (int i = 10; i < 20; i++) {
     client.print(F("<div class='slider-wrapper'>"));
-    client.print(F("<input type='range' class='slider' min='0' max='255' value='"));
+    client.print(F("<input type='range' id='slider"));
+    client.print(i+1);
+    client.print(F("' class='slider' min='0' max='255' value='"));
     client.print(channelValues[i]);
     client.print(F("' oninput='sendUpdate("));
     client.print(i + 1);
@@ -501,7 +596,7 @@ void controllerLoop() {
   client.println(F("    console.log(`Sent: ${url}`);"));
   client.println(F("    setTimeout(() => {"));
   client.println(F("      updateSliders();"));
-  client.println(F("    }, 200);"));
+  client.println(F("    }, 100);"));
   client.println(F("  });"));
   client.println(F("}"));
 
@@ -520,6 +615,25 @@ void controllerLoop() {
   client.println(F("  if (slider) slider.value = val;"));
   client.println(F("}"));
 
+  client.println(F("function sendCustomColor() {"));
+  client.println(F("  const cb1 = getCheckbox('groupCheckbox1');"));
+  client.println(F("  const cb2 = getCheckbox('groupCheckbox2');"));
+  client.println(F("  const cb3 = getCheckbox('groupCheckbox3');"));
+  client.println(F("  const cb4 = getCheckbox('groupCheckbox4');"));
+  client.println(F("  const r = parseInt(document.getElementById('customRed').value);"));
+  client.println(F("  const g = parseInt(document.getElementById('customGreen').value);"));
+  client.println(F("  const b = parseInt(document.getElementById('customBlue').value);"));
+  client.println(F("  const w = parseInt(document.getElementById('customWhite').value);"));
+  client.println(F("  "));
+  client.println(F("  const url = `/customColor?r=${r}&g=${g}&b=${b}&w=${w}&cb1=${cb1}&cb2=${cb2}&cb3=${cb3}&cb4=${cb4}`;"));
+  client.println(F("  fetch(url).then(res => {"));
+  client.println(F("    console.log(`Sent: ${url}`);"));
+  client.println(F("    setTimeout(() => {"));
+  client.println(F("      updateSliders();"));
+  client.println(F("    }, 100);"));
+  client.println(F("  });"));
+  client.println(F("}"));
+
   client.println(F("async function updateSliders() {"));
   client.println(F("  try {"));
   client.println(F("    const response = await fetch('/sliderValues');"));
@@ -530,7 +644,7 @@ void controllerLoop() {
   client.println(F("    for (let i = 0; i < 20 && i < values.length; i++) {"));
   client.println(F("      const slider = document.getElementById(`slider${i+1}`);"));
   client.println(F("      if (slider) {"));
-  client.println(F("        slider.value = valuse[i];"));
+  client.println(F("        slider.value = values[i];"));
   client.println(F("      }"));
   client.println(F("      console.log('I think i updated');"));
   client.println(F("    }"));
@@ -538,6 +652,28 @@ void controllerLoop() {
   client.println(F("    console.error('Failed to update sliders:', error);"));
   client.println(F("  }"));
   client.println(F("}"));
+
+
+  client.println(F("document.addEventListener(\"DOMContentLoaded\", () => {"));
+
+  // Manual control listeners
+  client.println(F("  [document.getElementById(\"channelInput\"), document.getElementById(\"valueInput\")].forEach(input => {"));
+  client.println(F("    input.addEventListener(\"keydown\", (event) => {"));
+  client.println(F("      if (event.key === \"Enter\") sendManualUpdate();"));
+  client.println(F("    });"));
+  client.println(F("  });"));
+
+  // Custom color listeners
+  client.println(F("  [\"customRed\", \"customGreen\", \"customBlue\", \"customWhite\"].forEach(id => {"));
+  client.println(F("    const el = document.getElementById(id);"));
+  client.println(F("    if (el) {"));
+  client.println(F("      el.addEventListener(\"keydown\", (event) => {"));
+  client.println(F("        if (event.key === \"Enter\") sendCustomColor();"));
+  client.println(F("      });"));
+  client.println(F("    }"));
+  client.println(F("  });"));
+
+  client.println(F("});"));
 
 
   client.println(F("</script>"));
