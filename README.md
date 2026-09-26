@@ -1,4 +1,4 @@
-network setup
+network setup (or at least how it works on mac)
 
 network settings
 name of adapter
